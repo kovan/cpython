@@ -70,6 +70,9 @@ A :class:`Cmd` instance has the following methods:
    cursor to the left non-destructively, etc.).
 
    An end-of-file on input is passed back as the string ``'EOF'``.
+   An interpreter can handle this by defining a ``do_EOF`` method, which
+   works like any other :meth:`!do_\*` method (see :ref:`the example
+   <cmd-eof-example>` below).
 
    .. index::
       single: ? (question mark); in a command interpreter
@@ -399,3 +402,72 @@ blank lines to repeat commands, and the simple record and playback facility:
 
     (turtle) bye
     Thank you for using Turtle
+
+
+.. _cmd-eof-example:
+
+Handling Empty Lines and End-of-File
+------------------------------------
+
+Two behaviors of :class:`Cmd` that often surprise new users are the
+handling of empty lines and end-of-file.
+
+By default, pressing :kbd:`Enter` on an empty line repeats the last nonempty
+command.  This is occasionally useful, but can be surprising --- especially
+for commands with side effects.  Override :meth:`~Cmd.emptyline` to suppress
+this behavior::
+
+    def emptyline(self):
+        pass  # Do nothing on empty input
+
+When the user sends an end-of-file character (:kbd:`Control-D` on Unix,
+:kbd:`Control-Z` on Windows), the framework dispatches it as a command named
+``EOF``.  Without a ``do_EOF`` method, this triggers :meth:`~Cmd.default`,
+which prints an error message.  Define a ``do_EOF`` method to exit
+gracefully::
+
+    def do_EOF(self, arg):
+        'Exit on Ctrl+D'
+        print()  # Move to a new line after the ^D
+        return True  # Signal cmdloop() to stop
+
+Here is a minimal shell incorporating both overrides::
+
+    import cmd
+
+    class HelloShell(cmd.Cmd):
+        prompt = '(hello) '
+
+        def do_greet(self, name):
+            'Greet someone:  GREET [name]'
+            if name:
+                print(f'Hello, {name}!')
+            else:
+                print('Hello, world!')
+
+        def do_quit(self, arg):
+            'Exit the shell:  QUIT'
+            return True
+
+        def emptyline(self):
+            pass
+
+        def do_EOF(self, arg):
+            'Exit on Ctrl+D'
+            print()
+            return True
+
+    if __name__ == '__main__':
+        HelloShell().cmdloop()
+
+An example session, showing that empty lines no longer repeat the previous
+command and that :kbd:`Control-D` exits cleanly:
+
+.. code-block:: none
+
+    (hello) greet Python
+    Hello, Python!
+    (hello)
+    (hello) greet
+    Hello, world!
+    (hello) quit
